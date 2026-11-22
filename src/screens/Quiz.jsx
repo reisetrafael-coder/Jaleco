@@ -7,6 +7,7 @@ import { Questao, perguntaSobreQuestao } from '../components/Questao.jsx';
 import { gerarQuestoes, pedidoDaSemana, pegarQuizPronto, prepararQuizDaSemana } from '../quizDados.js';
 import { novoId } from '../util.js';
 import { definirRascunho } from './Tutora.jsx';
+import { Confete, Contador } from '../components/efeitos.jsx';
 
 const NIVEIS = [['facil', 'Fácil'], ['medio', 'Médio'], ['prova', 'Nível prova']];
 
@@ -133,8 +134,9 @@ export function Quiz() {
     return (
       <main className="tela">
         <Cabecalho titulo="Resultado" />
+        {taxa >= 0.7 && <Confete />}
         <section className="resultado">
-          <p className="placar"><strong>{acertos}</strong><span>de {questoes.length}</span></p>
+          <p className="placar"><strong><Contador ate={acertos} /></strong><span>de {questoes.length}</span></p>
           <p className="resultado-frase">
             {taxa === 1 ? 'Gabaritou!' : taxa >= 0.7 ? 'Muito bom! Dá pra ver que você está pegando o jeito.' : taxa >= 0.4 ? 'Tá no caminho. Os erros já foram pro caderno pra você revisar.' : 'Esse tema precisa de mais atenção, e tudo bem: é pra isso que serve o treino.'}
           </p>
@@ -146,7 +148,7 @@ export function Quiz() {
           )}
           <ul className="lista-resultado">
             {Object.entries(porTema).map(([t, v]) => (
-              <li key={t}><span>{t}</span><span className={v.a === v.t ? 'ok' : v.a === 0 ? 'ruim' : ''}>{v.a}/{v.t}</span></li>
+              <li key={t} style={{ '--i': Object.keys(porTema).indexOf(t) }}><span>{t}</span><span className={v.a === v.t ? 'ok' : v.a === 0 ? 'ruim' : ''}>{v.a}/{v.t}</span></li>
             ))}
           </ul>
           <div className="pilha">

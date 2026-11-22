@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 import { markdown, reduzirImagem } from '../util.js';
 
 // ---------- Navegação (pelo #, para o botão voltar do Android funcionar) ----------
@@ -16,22 +17,59 @@ function atualizarRota() {
   ouvintesRota.forEach((f) => f());
   window.scrollTo(0, 0);
 }
-window.addEventListener('hashchange', atualizarRota);
-window.addEventListener('popstate', atualizarRota);
+
+export const reduzMovimento = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+let pendente = false;
+// Troca de tela com animação (View Transitions do Chrome).
+// direcao: "avanca" (entra pela direita), "volta" (pela esquerda) ou "aba" (troca suave).
+function comTransicao(direcao, mudar) {
+  if (!document.startViewTransition || reduzMovimento() || document.visibilityState !== 'visible') {
+    mudar();
+    return;
+  }
+  const raiz = document.documentElement;
+  raiz.dataset.transicao = direcao;
+  pendente = true;
+  const t = document.startViewTransition(() => { pendente = false; flushSync(mudar); });
+  t.ready.catch(() => {});
+  t.finished.catch(() => {}).finally(() => { if (raiz.dataset.transicao === direcao) delete raiz.dataset.transicao; });
+}
+
+window.addEventListener('popstate', () => comTransicao('volta', atualizarRota));
+window.addEventListener('hashchange', () => { if (!pendente) atualizarRota(); });
+
 export function useRota() {
   return useSyncExternalStore((f) => { ouvintesRota.add(f); return () => ouvintesRota.delete(f); }, () => rotaAtual);
 }
 // Guarda a "profundidade" no histórico para o voltar nunca sair do app sem querer.
-export function navegar(caminho, { substituir = false } = {}) {
+export function navegar(caminho, { substituir = false, direcao } = {}) {
   const d = window.history.state?.d || 0;
-  if (substituir) window.history.replaceState({ d }, '', '#' + caminho);
-  else window.history.pushState({ d: d + 1 }, '', '#' + caminho);
-  atualizarRota();
+  comTransicao(direcao || (substituir ? 'aba' : 'avanca'), () => {
+    if (substituir) window.history.replaceState({ d }, '', '#' + caminho);
+    else window.history.pushState({ d: d + 1 }, '', '#' + caminho);
+    atualizarRota();
+  });
 }
 export function voltar(padrao = '/') {
   if ((window.history.state?.d || 0) > 0) window.history.back();
-  else navegar(padrao, { substituir: true });
+  else navegar(padrao, { substituir: true, direcao: 'volta' });
 }
+
+// ---------- Efeito de toque (onda) nos botões ----------
+const TOCAVEIS = '.btn, .alternativa, .cartao-acao, .atalhos button, .opcao, .lista-provas button, .lista-simples.clicavel button, .sugestoes button, .rapidas button, .segmentos button';
+document.addEventListener('pointerdown', (ev) => {
+  if (reduzMovimento()) return;
+  const alvo = ev.target.closest?.(TOCAVEIS);
+  if (!alvo || alvo.disabled) return;
+  const r = alvo.getBoundingClientRect();
+  const tam = Math.max(r.width, r.height) * 2;
+  const onda = document.createElement('span');
+  onda.className = 'onda';
+  onda.style.cssText = `width:${tam}px;height:${tam}px;left:${ev.clientX - r.left - tam / 2}px;top:${ev.clientY - r.top - tam / 2}px`;
+  alvo.appendChild(onda);
+  onda.addEventListener('animationend', () => onda.remove());
+}, { passive: true });
 
 // ---------- Ícones ----------
 const caminhos = {

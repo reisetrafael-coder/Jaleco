@@ -6,6 +6,7 @@ import { proximasAvaliacoes } from '../shared/lembretes.js';
 import { Fita, Icone, navegar } from '../components/base.jsx';
 import { prepararQuizDaSemana } from '../quizDados.js';
 import { useInstalacao } from '../instalar.js';
+import { Contador } from '../components/efeitos.jsx';
 
 function saudacao() {
   const h = horaBR();
@@ -88,7 +89,7 @@ export function Hoje() {
 
       {revisar > 0 && (
         <button className="cartao cartao-acao" onClick={() => navegar('/erros/revisar')}>
-          <span className="numero-grande">{revisar}</span>
+          <span className="numero-grande"><Contador ate={revisar} duracao={600} /></span>
           <span>
             <strong>{revisar === 1 ? 'questão pra revisar hoje' : 'questões pra revisar hoje'}</strong>
             <small>Do seu caderno de erros. Acertando, elas voltam cada vez mais espaçadas.</small>

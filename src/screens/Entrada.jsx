@@ -30,7 +30,7 @@ export function Entrada({ aoEntrar }) {
 
   return (
     <main className="entrada">
-      <Logo tamanho={88} />
+      <div className="entrada-logo"><Logo tamanho={88} /></div>
       <h1 className="entrada-titulo">{APP_NOME}</h1>
       <p className="entrada-sub">Seu plantão de estudos de enfermagem: quizzes, tutora, anotações e lembretes, tudo ligado ao que você está vendo no curso.</p>
       <form className="cartao entrada-form" onSubmit={entrar}>

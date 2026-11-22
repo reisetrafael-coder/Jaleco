@@ -4,6 +4,7 @@ import { formatarData, hojeBR } from '../shared/datas.js';
 import { Cabecalho, navegar, useRota } from '../components/base.jsx';
 import { Questao, perguntaSobreQuestao } from '../components/Questao.jsx';
 import { definirRascunho } from './Tutora.jsx';
+import { Contador } from '../components/efeitos.jsx';
 
 export function Erros() {
   const { partes } = useRota();
@@ -71,7 +72,7 @@ function Revisar() {
         <section className="resultado">
           {fila.length ? (
             <>
-              <p className="placar"><strong>{acertos}</strong><span>de {fila.length}</span></p>
+              <p className="placar"><strong><Contador ate={acertos} /></strong><span>de {fila.length}</span></p>
               <p className="resultado-frase">Revisão de hoje feita. As que você acertou voltam mais pra frente; as que errou voltam amanhã.</p>
             </>
           ) : (

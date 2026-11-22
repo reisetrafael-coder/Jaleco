@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Abertura } from './components/Abertura.jsx';
 import { getCodigo } from './api.js';
 import { useEstado } from './estado.js';
 import { Icone, navegar, useRota } from './components/base.jsx';
@@ -24,9 +25,20 @@ const TELAS = { checkin: Checkin, quiz: Quiz, erros: Erros, tutora: Tutora, nota
 
 export function App() {
   const [entrou, setEntrou] = useState(!!getCodigo());
+  // Abertura animada: 'mostrando' -> 'saindo' (o app começa a aparecer por baixo) -> false
+  const [abertura, setAbertura] = useState(() => (sessionStorage.getItem('jaleco:abriu') ? false : 'mostrando'));
   const { partes } = useRota();
   useEstado();
-  if (!entrou) return <Entrada aoEntrar={() => setEntrou(true)} />;
+  const fimAbertura = () => { sessionStorage.setItem('jaleco:abriu', '1'); setAbertura(false); };
+  const abertura_ = abertura && <Abertura aoSair={() => setAbertura('saindo')} aoTerminar={fimAbertura} />;
+  if (!entrou) {
+    return (
+      <>
+        {abertura_}
+        <div className={`palco ${abertura === 'mostrando' ? 'esperando' : ''}`}><Entrada aoEntrar={() => setEntrou(true)} /></div>
+      </>
+    );
+  }
 
   const raiz = partes[0] || '';
   const Tela = TELAS[raiz] || Hoje;
@@ -35,15 +47,21 @@ export function App() {
 
   return (
     <>
-      <Tela />
+      {abertura_}
+      <div className={`palco ${abertura === 'mostrando' ? 'esperando' : ''}`} key={raiz || 'hoje'}>
+        <Tela />
+      </div>
       {!emConversa && (
         <nav className="abas" aria-label="Seções do app">
           {ABAS.map(([caminho, icone, rotulo]) => {
             const ehAtiva = ativa === caminho.slice(1);
             return (
               <button key={caminho} className={ehAtiva ? 'ativa' : ''} aria-current={ehAtiva ? 'page' : undefined}
-                onClick={() => navegar(caminho, { substituir: true })}>
-                <Icone nome={icone} />
+                onClick={() => !ehAtiva && navegar(caminho, { substituir: true, direcao: 'aba' })}>
+                <span className="abas-icone">
+                  {ehAtiva && <span className="abas-indicador" aria-hidden="true" />}
+                  <Icone nome={icone} />
+                </span>
                 <span>{rotulo}</span>
               </button>
             );
