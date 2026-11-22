@@ -26,10 +26,10 @@ const TELAS = { checkin: Checkin, quiz: Quiz, erros: Erros, tutora: Tutora, nota
 export function App() {
   const [entrou, setEntrou] = useState(!!getCodigo());
   // Abertura animada: 'mostrando' -> 'saindo' (o app começa a aparecer por baixo) -> false
-  const [abertura, setAbertura] = useState(() => (sessionStorage.getItem('jaleco:abriu') ? false : 'mostrando'));
+  const [abertura, setAbertura] = useState(() => { try { return sessionStorage.getItem('jaleco:abriu') ? false : 'mostrando'; } catch { return 'mostrando'; } });
   const { partes } = useRota();
   useEstado();
-  const fimAbertura = () => { sessionStorage.setItem('jaleco:abriu', '1'); setAbertura(false); };
+  const fimAbertura = () => { try { sessionStorage.setItem('jaleco:abriu', '1'); } catch { /* ok */ } setAbertura(false); };
   const abertura_ = abertura && <Abertura aoSair={() => setAbertura('saindo')} aoTerminar={fimAbertura} />;
   if (!entrou) {
     return (

@@ -44,6 +44,7 @@ export function Entrada({ aoEntrar }) {
           <input value={codigo} onChange={(e) => setCod(e.target.value)} placeholder={`O ${ASSINATURA} te passa esse código`} required
             autoComplete="off" />
         </label>
+        {import.meta.env.VITE_DEMO && <p className="nota-baixo">Demonstração: digite qualquer código. A IA é simulada e as questões se repetem.</p>}
         <Aviso>{erro}</Aviso>
         <button className="btn btn-principal largo" disabled={enviando || !codigo.trim()}>
           {enviando ? 'Conferindo…' : 'Começar a estudar'}

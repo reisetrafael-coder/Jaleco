@@ -1,8 +1,9 @@
 // Comunicação do app com o servidor (funções da pasta /api).
 const CHAVE_CODIGO = 'jaleco:codigo';
 
-export const getCodigo = () => localStorage.getItem(CHAVE_CODIGO) || '';
-export const setCodigo = (c) => localStorage.setItem(CHAVE_CODIGO, c.trim());
+export const getCodigo = () => { try { return localStorage.getItem(CHAVE_CODIGO) || ''; } catch { return memoria; } };
+export const setCodigo = (c) => { memoria = c.trim(); try { localStorage.setItem(CHAVE_CODIGO, memoria); } catch { /* sem armazenamento */ } };
+let memoria = '';
 
 const SEM_INTERNET = 'Sem conexão com a internet. Confere o Wi-Fi ou os dados móveis e tenta de novo.';
 
