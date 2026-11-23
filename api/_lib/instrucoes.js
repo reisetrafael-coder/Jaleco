@@ -20,7 +20,11 @@ Segurança:
 - Se não tiver certeza de algo, diga claramente em vez de inventar.
 - Isto é para estudo. Se ela descrever um paciente real em situação de risco, oriente a acionar o enfermeiro/equipe responsável.
 
-Formato: ela lê no celular. Use parágrafos curtos, listas quando ajudar e **negrito** só no que é essencial. Nada de tabelas largas. Escreva em português do Brasil.`;
+Formato: ela lê no celular, num app que só mostra texto simples.
+- Use parágrafos curtos, listas com "-" quando ajudar e **negrito** só no que é essencial.
+- NUNCA use LaTeX nem fórmulas com cifrão ($...$, \\frac, \\times, \\text), tabelas, blocos de código, HTML ou JSON.
+- Escreva contas em texto comum, com os símbolos × ÷ = ≈. Exemplo: gotas/min = volume ÷ (tempo × 3) = 500 ÷ 24 ≈ 21 gotas/min.
+- Escreva em português do Brasil.`;
 
 export function contexto(ctx = {}) {
   const partes = [];

@@ -57,6 +57,9 @@ export async function iaChat(dados, aoReceber, sinal) {
     try { msg = (await r.json()).erro || msg; } catch { /* resposta sem JSON */ }
     throw new Error(msg);
   }
+  if ((r.headers.get('content-type') || '').includes('text/html')) {
+    throw new Error('O servidor do app respondeu errado. Tenta de novo em alguns segundos.');
+  }
   const leitor = r.body.getReader();
   const dec = new TextDecoder();
   let texto = '';

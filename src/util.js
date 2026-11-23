@@ -17,9 +17,9 @@ export function normalizarQuestao(q) {
   return {
     id: q.id || novoId(),
     tema: q.tema || 'Geral',
-    enunciado: q.enunciado,
-    alternativas: q.alternativas.map((a) => ({ texto: a.texto, correta: !!a.correta, explicacao: a.explicacao || '' })),
-    dica: q.dica || '',
+    enunciado: textoPuro(q.enunciado),
+    alternativas: q.alternativas.map((a) => ({ texto: textoPuro(a.texto), correta: !!a.correta, explicacao: textoPuro(a.explicacao || '') })),
+    dica: textoPuro(q.dica || ''),
   };
 }
 
@@ -46,7 +46,32 @@ export function reduzirImagem(arquivo, max = 1600) {
   });
 }
 
-// Markdown simples -> HTML seguro (negrito, itálico, listas e títulos).
+// Converte fórmulas no formato LaTeX (que a IA às vezes usa) em texto legível.
+export function limparFormulas(t = '') {
+  let s = String(t);
+  for (let i = 0; i < 4; i++) {
+    s = s.replace(/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1) ÷ ($2)');
+    s = s.replace(/\\(?:text|mathrm|textbf|mathbf|operatorname)\s*\{([^{}]*)\}/g, '$1');
+  }
+  s = s
+    .replace(/\$\$([\s\S]*?)\$\$/g, '$1')
+    .replace(/\\\[([\s\S]*?)\\\]/g, '$1')
+    .replace(/\\\(([\s\S]*?)\\\)/g, '$1')
+    .replace(/\$([^$\n]+)\$/g, '$1')
+    .replace(/\\times/g, '×').replace(/\\div/g, '÷').replace(/\\cdot/g, '·')
+    .replace(/\\approx/g, '≈').replace(/\\geq?/g, '≥').replace(/\\leq?/g, '≤').replace(/\\neq/g, '≠')
+    .replace(/\\rightarrow|\\to\b/g, '→').replace(/\\%/g, '%').replace(/\\left|\\right/g, '')
+    .replace(/\\[,;:! ]/g, ' ').replace(/\\quad/g, '  ')
+    .replace(/\(([^()+\-×÷\s]+)\)/g, '$1');
+  return s;
+}
+
+// Texto curto sem marcações (enunciados e alternativas do quiz).
+export function textoPuro(t = '') {
+  return limparFormulas(t).replace(/\*\*(.+?)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
+}
+
+// Markdown simples -> HTML seguro (negrito, itálico, listas, títulos e tabelas).
 function escapar(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -57,7 +82,7 @@ function emLinha(s) {
     .replace(/`(.+?)`/g, '<code>$1</code>');
 }
 export function markdown(texto = '') {
-  const linhas = texto.replace(/\r/g, '').split('\n');
+  const linhas = limparFormulas(texto).replace(/\r/g, '').split('\n').filter((l) => !/^\s*```/.test(l));
   let html = '';
   let lista = null;
   let paragrafo = [];
@@ -69,8 +94,21 @@ export function markdown(texto = '') {
     if (lista) html += `</${lista}>`;
     lista = null;
   };
+  let tabela = null;
+  const fecharTabela = () => {
+    if (tabela) html += `<div class="tabela"><table>${tabela.join('')}</table></div>`;
+    tabela = null;
+  };
   for (const bruta of linhas) {
     const l = bruta.trimEnd();
+    if (/^\s*\|.*\|\s*$/.test(l)) {
+      fecharParagrafo(); fecharLista();
+      if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) continue;
+      const celulas = l.trim().slice(1, -1).split('|').map((c) => `<td>${emLinha(c.trim())}</td>`).join('');
+      (tabela = tabela || []).push(`<tr>${celulas}</tr>`);
+      continue;
+    }
+    fecharTabela();
     const titulo = l.match(/^#{1,4}\s+(.*)/);
     const item = l.match(/^\s*[-*•]\s+(.*)/);
     const num = l.match(/^\s*\d+[.)]\s+(.*)/);
@@ -88,6 +126,7 @@ export function markdown(texto = '') {
   }
   fecharParagrafo();
   fecharLista();
+  fecharTabela();
   return html;
 }
 
