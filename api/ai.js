@@ -1,6 +1,13 @@
 // Ponto de entrada da IA tutora: quiz, check-in, chat, resumo, foto e plano de revisão.
 import { conferirCodigo, lerJson, responder } from './_lib/http.js';
-import { pedirEstruturado, pedirTexto, transmitirTexto } from './_lib/claude.js';
+import { ErroAmigavel, pedirEstruturado, pedirTexto, transmitirTexto } from './_lib/claude.js';
+
+// Só mostra na tela mensagens seguras; erros internos viram uma mensagem genérica.
+function mensagemSegura(e) {
+  if (e instanceof ErroAmigavel) return e.message;
+  console.error('Erro interno na IA:', e?.name || 'erro');
+  return 'A IA não conseguiu responder agora. Tenta de novo em alguns segundos.';
+}
 import * as I from './_lib/instrucoes.js';
 
 
@@ -41,7 +48,7 @@ const acoes = {
     const questoes = (r.questoes || []).filter(
       (q) => q.alternativas?.length >= 2 && q.alternativas.filter((a) => a.correta).length === 1,
     );
-    if (!questoes.length) throw new Error('Não consegui montar as questões dessa vez. Tenta de novo.');
+    if (!questoes.length) throw new ErroAmigavel('Não consegui montar as questões dessa vez. Tenta de novo.');
     return { questoes };
   },
 
@@ -106,7 +113,7 @@ async function chat(p, res) {
       aoReceber: (t) => res.write(t),
     });
   } catch (e) {
-    res.write(`\n\n⚠️ ${e.message}`);
+    res.write(`\n\n⚠️ ${mensagemSegura(e)}`);
   }
   res.end();
 }
@@ -122,6 +129,6 @@ export default async function handler(req, res) {
   try {
     responder(res, 200, await acao(p));
   } catch (e) {
-    responder(res, 502, { erro: e.message || 'Erro na IA.' });
+    responder(res, 502, { erro: mensagemSegura(e) });
   }
 }

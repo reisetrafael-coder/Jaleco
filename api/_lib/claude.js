@@ -5,7 +5,14 @@ const ENDERECO = 'https://api.anthropic.com/v1/messages';
 export const modelo = () => process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 const simulado = () => !!process.env.MOCK_AI;
 
+// Erro com mensagem segura para mostrar na tela (nunca contém a chave).
+export class ErroAmigavel extends Error {}
+
 function erroAmigavel(status, texto) {
+  return new ErroAmigavel(mensagemErro(status, texto));
+}
+
+function mensagemErro(status, texto) {
   if (status === 401) return 'A chave da API do Claude está errada ou foi apagada. Confira ANTHROPIC_API_KEY na Vercel.';
   if (/credit balance|billing/i.test(texto)) return 'Acabaram os créditos da API do Claude. Adicione créditos no painel da Anthropic.';
   if (status === 429) return 'Muitas perguntas em pouco tempo. Espera um minutinho e tenta de novo.';
@@ -14,9 +21,17 @@ function erroAmigavel(status, texto) {
   return `A IA respondeu com erro ${status}.`;
 }
 
+// Aceita a chave mesmo que tenha sido colada junto com outro texto (ex.: um exemplo de código).
+function lerChave() {
+  const bruto = process.env.ANTHROPIC_API_KEY || '';
+  if (!bruto.trim()) throw new ErroAmigavel('A chave da IA (ANTHROPIC_API_KEY) não foi configurada na Vercel.');
+  const achada = bruto.match(/sk-ant-[A-Za-z0-9_-]+/);
+  if (!achada) throw new ErroAmigavel('A chave da IA na Vercel está no formato errado. Cole só a chave que começa com sk-ant-.');
+  return achada[0];
+}
+
 function cabecalhos() {
-  const chave = process.env.ANTHROPIC_API_KEY;
-  if (!chave) throw new Error('A chave da API do Claude (ANTHROPIC_API_KEY) não foi configurada na Vercel.');
+  const chave = lerChave();
   return {
     'x-api-key': chave,
     'anthropic-version': '2023-06-01',
@@ -40,10 +55,10 @@ export async function pedirEstruturado({ sistema, mensagens, ferramenta, maxToke
     }),
   });
   const texto = await r.text();
-  if (!r.ok) throw new Error(erroAmigavel(r.status, texto));
+  if (!r.ok) throw erroAmigavel(r.status, texto);
   const dados = JSON.parse(texto);
   const bloco = (dados.content || []).find((b) => b.type === 'tool_use');
-  if (!bloco) throw new Error('A IA não devolveu a resposta no formato esperado. Tenta de novo.');
+  if (!bloco) throw new ErroAmigavel('A IA não devolveu a resposta no formato esperado. Tenta de novo.');
   return bloco.input;
 }
 
@@ -56,7 +71,7 @@ export async function pedirTexto({ sistema, mensagens, maxTokens = 2000 }) {
     body: JSON.stringify({ model: modelo(), max_tokens: maxTokens, system: sistema, messages: mensagens }),
   });
   const texto = await r.text();
-  if (!r.ok) throw new Error(erroAmigavel(r.status, texto));
+  if (!r.ok) throw erroAmigavel(r.status, texto);
   const dados = JSON.parse(texto);
   return (dados.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
 }
@@ -76,7 +91,7 @@ export async function transmitirTexto({ sistema, mensagens, maxTokens = 2000, ao
     headers: cabecalhos(),
     body: JSON.stringify({ model: modelo(), max_tokens: maxTokens, system: sistema, messages: mensagens, stream: true }),
   });
-  if (!r.ok) throw new Error(erroAmigavel(r.status, await r.text()));
+  if (!r.ok) throw erroAmigavel(r.status, await r.text());
   const leitor = r.body.getReader();
   const dec = new TextDecoder();
   let buffer = '';
@@ -93,7 +108,7 @@ export async function transmitirTexto({ sistema, mensagens, maxTokens = 2000, ao
         let json;
         try { json = JSON.parse(linha.slice(5).trim()); } catch { continue; }
         if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta') aoReceber(json.delta.text);
-        if (json.type === 'error') throw new Error(erroAmigavel(529, JSON.stringify(json.error || {})));
+        if (json.type === 'error') throw erroAmigavel(529, JSON.stringify(json.error || {}));
       }
     }
   }
