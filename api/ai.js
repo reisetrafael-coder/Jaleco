@@ -30,25 +30,43 @@ const acoes = {
   async quiz(p) {
     const n = Math.min(Math.max(Number(p.quantidade) || 5, 1), 10);
     const nivel = { facil: 'fácil (conceitos básicos)', medio: 'médio (nível de prova do curso)', prova: 'difícil (nível de concurso para técnico)' }[p.nivel] || 'médio';
-    const linhas = [`Crie ${n} questões de nível ${nivel}.`];
-    if (p.textoBase) {
-      linhas.push(`Baseie as questões SOMENTE neste material de estudo da estudante:\n"""${limpar(p.textoBase, 8000)}"""`);
-    } else {
-      if (p.temas?.length) linhas.push(`Temas principais (cerca de 70% das questões): ${p.temas.join('; ')}.`);
-      if (p.revisao?.length) linhas.push(`Temas para revisão (cerca de 30% das questões): ${p.revisao.join('; ')}.`);
-      if (!p.temas?.length && !p.revisao?.length) linhas.push('Temas variados do curso técnico em enfermagem.');
+    const temas = p.temas || [];
+    const revisao = p.revisao || [];
+    // Pede as questões em lotes de 2, todos ao mesmo tempo: fica bem mais rápido.
+    const lotes = [];
+    for (let i = 0; i < n; i += 2) lotes.push(Math.min(2, n - i));
+    const pedirLote = (qtd, i) => {
+      const linhas = [`Crie ${qtd} ${qtd === 1 ? 'questão' : 'questões'} de nível ${nivel}.`];
+      if (p.textoBase) {
+        linhas.push(`Baseie as questões SOMENTE neste material de estudo da estudante:\n"""${limpar(p.textoBase, 8000)}"""`);
+        if (lotes.length > 1) linhas.push(`Este é o lote ${i + 1} de ${lotes.length}: foque na parte ${i + 1} do material (divida o material em ${lotes.length} partes).`);
+      } else {
+        // Cada lote recebe um foco diferente para não repetir assunto.
+        const foco = i === lotes.length - 1 && revisao.length && lotes.length > 1
+          ? revisao.slice(i % Math.max(1, revisao.length)).concat(revisao).slice(0, 3)
+          : (temas.length ? [temas[i % temas.length]] : revisao.slice(0, 3));
+        if (foco.length) linhas.push(`Foco deste lote: ${foco.join('; ')}.`);
+        if (temas.length) linhas.push(`Temas da semana (contexto): ${temas.join('; ')}.`);
+        if (!foco.length) linhas.push('Temas variados do curso técnico em enfermagem.');
+      }
+      if (p.evitar?.length) linhas.push(`Evitar (já foram feitas): ${p.evitar.slice(0, 30).map((e) => limpar(e, 140)).join(' | ')}`);
+      return pedirEstruturado({
+        sistema: I.BASE + I.contexto(p.contexto) + I.QUIZ,
+        mensagens: [{ role: 'user', content: linhas.join('\n\n') }],
+        ferramenta: I.FERRAMENTA_QUIZ,
+        maxTokens: 2400,
+      });
+    };
+    const resultados = await Promise.allSettled(lotes.map(pedirLote));
+    const questoes = resultados
+      .filter((r) => r.status === 'fulfilled')
+      .flatMap((r) => r.value.questoes || [])
+      .filter((q) => q.alternativas?.length >= 2 && q.alternativas.filter((a) => a.correta).length === 1)
+      .slice(0, n);
+    if (!questoes.length) {
+      const falha = resultados.find((r) => r.status === 'rejected');
+      throw falha ? falha.reason : new ErroAmigavel('Não consegui montar as questões dessa vez. Tenta de novo.');
     }
-    if (p.evitar?.length) linhas.push(`Evitar (já foram feitas): ${p.evitar.slice(0, 30).map((e) => limpar(e, 140)).join(' | ')}`);
-    const r = await pedirEstruturado({
-      sistema: I.BASE + I.contexto(p.contexto) + I.QUIZ,
-      mensagens: [{ role: 'user', content: linhas.join('\n\n') }],
-      ferramenta: I.FERRAMENTA_QUIZ,
-      maxTokens: 900 * n + 500,
-    });
-    const questoes = (r.questoes || []).filter(
-      (q) => q.alternativas?.length >= 2 && q.alternativas.filter((a) => a.correta).length === 1,
-    );
-    if (!questoes.length) throw new ErroAmigavel('Não consegui montar as questões dessa vez. Tenta de novo.');
     return { questoes };
   },
 
