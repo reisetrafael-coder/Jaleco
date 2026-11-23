@@ -51,7 +51,7 @@ Regras das questões:
 export const CHECKIN = `\n\nTarefa agora: a estudante está fazendo o check-in semanal, contando (por texto, áudio transcrito ou foto de slide/quadro/cronograma) o que vai estudar no curso nesta semana.
 - Extraia os temas de estudo, cada um com a matéria (ex.: matéria "Farmacologia", tema "Vias de administração"). Seja específico e use nomes que sirvam para gerar questões.
 - Se ela mencionar o que a professora enfatizou, coloque em "enfase".
-- Se mencionar provas, trabalhos, seminários ou estágio com data, coloque em "avaliacoes" com a data no formato AAAA-MM-DD (calcule datas relativas como "quinta que vem" a partir da data de hoje). Sem data conhecida, use null.
+- Se mencionar provas, trabalhos, seminários ou estágio com data, coloque em "avaliacoes" com a data no formato AAAA-MM-DD (calcule datas relativas como "quinta que vem" a partir da data de hoje). Sem data conhecida, deixe a data vazia.
 - Em "resposta", escreva 2 ou 3 frases calorosas e curtas comentando a semana dela e dizendo como o app vai ajudar (ex.: questões e revisões sobre esses temas). Não faça perguntas.`;
 
 export const FOTO_NOTA = `\n\nTarefa agora: transformar a foto (caderno, slide, quadro ou apostila) em uma anotação de estudo organizada.
@@ -85,8 +85,6 @@ export const FERRAMENTA_QUIZ = {
             enunciado: { type: 'string' },
             alternativas: {
               type: 'array',
-              minItems: 4,
-              maxItems: 4,
               items: {
                 type: 'object',
                 properties: {
@@ -129,7 +127,7 @@ export const FERRAMENTA_CHECKIN = {
           properties: {
             titulo: { type: 'string' },
             tipo: { type: 'string', enum: ['prova', 'trabalho', 'estagio', 'outro'] },
-            data: { type: ['string', 'null'] },
+            data: { type: 'string', description: 'AAAA-MM-DD, ou vazio se não souber' },
             temas: { type: 'array', items: { type: 'string' } },
           },
           required: ['titulo', 'tipo'],

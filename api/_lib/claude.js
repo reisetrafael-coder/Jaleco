@@ -12,13 +12,18 @@ function erroAmigavel(status, texto) {
   return new ErroAmigavel(mensagemErro(status, texto));
 }
 
+function detalheErro(texto) {
+  try { return JSON.parse(texto)?.error?.message || ''; } catch { return ''; }
+}
+
 function mensagemErro(status, texto) {
   if (status === 401) return 'A chave da API do Claude está errada ou foi apagada. Confira ANTHROPIC_API_KEY na Vercel.';
   if (/credit balance|billing/i.test(texto)) return 'Acabaram os créditos da API do Claude. Adicione créditos no painel da Anthropic.';
   if (status === 429) return 'Muitas perguntas em pouco tempo. Espera um minutinho e tenta de novo.';
   if (status === 529 || status === 503) return 'O Claude está sobrecarregado agora. Tenta de novo em alguns segundos.';
   if (status === 404 && /model/i.test(texto)) return `O modelo "${modelo()}" não foi encontrado. Confira ANTHROPIC_MODEL na Vercel.`;
-  return `A IA respondeu com erro ${status}.`;
+  const detalhe = detalheErro(texto).slice(0, 160);
+  return `A IA respondeu com erro ${status}${detalhe ? `: ${detalhe}` : '.'}`;
 }
 
 // Aceita a chave mesmo que tenha sido colada junto com outro texto (ex.: um exemplo de código).
@@ -40,6 +45,7 @@ function cabecalhos() {
 }
 
 // Pede uma resposta estruturada (JSON) usando uma "ferramenta" obrigatória.
+// Se a IA recusar esse formato (erro 400), pede o mesmo conteúdo como JSON em texto.
 export async function pedirEstruturado({ sistema, mensagens, ferramenta, maxTokens = 4000 }) {
   if (simulado()) return respostaFalsa(ferramenta.name, mensagens);
   const r = await fetch(ENDERECO, {
@@ -55,11 +61,33 @@ export async function pedirEstruturado({ sistema, mensagens, ferramenta, maxToke
     }),
   });
   const texto = await r.text();
+  if (r.status === 400) {
+    console.error('Formato com ferramenta recusado, usando JSON em texto:', detalheErro(texto));
+    return pedirJsonEmTexto({ sistema, mensagens, ferramenta, maxTokens });
+  }
   if (!r.ok) throw erroAmigavel(r.status, texto);
   const dados = JSON.parse(texto);
   const bloco = (dados.content || []).find((b) => b.type === 'tool_use');
-  if (!bloco) throw new ErroAmigavel('A IA não devolveu a resposta no formato esperado. Tenta de novo.');
+  if (!bloco) return pedirJsonEmTexto({ sistema, mensagens, ferramenta, maxTokens });
   return bloco.input;
+}
+
+function extrairJson(texto) {
+  const limpo = texto.replace(/```(?:json)?/g, '');
+  const ini = limpo.indexOf('{');
+  const fim = limpo.lastIndexOf('}');
+  if (ini < 0 || fim <= ini) throw new ErroAmigavel('A IA não devolveu a resposta no formato esperado. Tenta de novo.');
+  try {
+    return JSON.parse(limpo.slice(ini, fim + 1));
+  } catch {
+    throw new ErroAmigavel('A IA não devolveu a resposta no formato esperado. Tenta de novo.');
+  }
+}
+
+async function pedirJsonEmTexto({ sistema, mensagens, ferramenta, maxTokens }) {
+  const instrucao = `\n\nFORMATO DA RESPOSTA: responda APENAS com um objeto JSON válido, sem nenhum texto antes ou depois e sem blocos de código. O JSON deve seguir exatamente este esquema (JSON Schema):\n${JSON.stringify(ferramenta.input_schema)}`;
+  const texto = await pedirTexto({ sistema: sistema + instrucao, mensagens, maxTokens });
+  return extrairJson(texto);
 }
 
 // Pede texto livre (sem streaming).
